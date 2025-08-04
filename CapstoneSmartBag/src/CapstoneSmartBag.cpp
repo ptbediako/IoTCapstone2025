@@ -1,7 +1,7 @@
 /* 
- * Project Water Sensor Test
+ * Project Capstone Smart Bag
  * Author: Phylicia Bediako
- * Date: 
+ * Date: 8/4/25
  * For comprehensive documentation and examples, please visit:
  * https://docs.particle.io/firmware/best-practices/firmware-template/
  */
@@ -15,7 +15,6 @@ float waterVal;
 // Let Device OS manage the connection to the Particle Cloud
 SYSTEM_MODE(AUTOMATIC);
 
-
 void setup() {
   Serial.begin(9600);
   waitFor(Serial.isConnected,10000);
@@ -27,5 +26,4 @@ void setup() {
 void loop() {
   waterVal=digitalRead(WATERSENSOR);
   Serial.printf("%f\n",waterVal);
-  //delay(1000);
 }
