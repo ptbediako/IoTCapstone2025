@@ -15,6 +15,7 @@
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT/Adafruit_MQTT_SPARK.h"
 #include "Adafruit_MQTT/Adafruit_MQTT.h"
+#include "Adafruit_BME280.h"
 
 //PUBLISH code here
 //TCPClient TheClient;
@@ -91,10 +92,10 @@ void loop() {
   MQTT_ping();
 
   inTempC=bmeInner.readTemperature();
-  inTempF=(tempC*1.8)+32;
+  inTempF=(inTempC*1.8)+32;
 
   outTempC=bmeOuter.readTemperature();
-  outTempF=(tempC*1.8)+32;
+  outTempF=(outTempC*1.8)+32;
 
   waterVal=digitalRead(WATERSENSOR);
   if ((waterChange =! waterChange)){
@@ -110,9 +111,9 @@ void loop() {
 
   if((millis()-lastPubTime)>30000){
     if(mqtt.Update()){
-      inTemp.publish(soilDryness,1);
-      outTemp.publish(airQuality,1);
-      leak.publish(tempF,1);
+      inTemp.publish(inTempF,1);
+      outTemp.publish(outTempF,1);
+      leak.publish(waterVal,1);
     }
     lastPubTime = millis();
   }
@@ -124,7 +125,7 @@ void loop() {
   // display.setTextColor(WHITE);
   // display.setCursor(0,0);
   // display.clearDisplay();
-  // display.printf("",inTempF,outTempF,waterVal);
+  // display.printf("Danger Zone:\n40F-140F\n",inTempF,outTempF,waterVal);
   // display.display();
 
   //if(timer.isTimerReady()){
