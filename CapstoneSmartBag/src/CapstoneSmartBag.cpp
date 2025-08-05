@@ -19,8 +19,8 @@
 //PUBLISH code here
 //TCPClient TheClient;
 //Adafruit_MQTT_Publish inTemp = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.insidebagtemp");
-//Adafruit_MQTT_Publish leak = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.leakindicator");
 //Adafruit_MQTT_Publish outTemp = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.outsidebagtemp");
+//Adafruit_MQTT_Publish leak = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.leakindicator");
 
 float pubValue;
 void MQTT_connect();
@@ -30,7 +30,8 @@ unsigned int lastPubTime; //maybe for printing at regular intervals?
 //Water Sensor
 const int WATERSENSOR=D5; //is more responsive at 5V than 3.3V
 int waterVal;
-String waterMsg;
+const char* waterMsg;
+bool waterChange;
 
 //BME Variables--NEED 2 (ADDRESSES x76 AND x77)
 float inTempC,inTempF,outTempC,outTempF;
@@ -88,6 +89,7 @@ void setup() {
 void loop() {
   MQTT_connect();
   MQTT_ping();
+
   inTempC=bmeInner.readTemperature();
   inTempF=(tempC*1.8)+32;
 
@@ -95,21 +97,22 @@ void loop() {
   outTempF=(tempC*1.8)+32;
 
   waterVal=digitalRead(WATERSENSOR);
-  if ((waterVal == 0)){
-    waterMsg = "No leak or spill detected";
-  }
-  else{
-    waterMsg = "Possible leak or spill";
+  if ((waterChange =! waterChange)){
+    if ((waterVal == 0)){
+      waterMsg = "No leak or spill detected";
+    }
+    else{
+      waterMsg = "Possible leak or spill";
+    }
+      // Serial.printf("%s\n",waterMsg);
   }
 
 
   if((millis()-lastPubTime)>30000){
     if(mqtt.Update()){
-      hgSoilFeed.publish(soilDryness,1);
-      hgAirFeed.publish(airQuality,1);
-      hgTempFeed.publish(tempF,1);
-      hgHumidFeed.publish(humidRH,1);
-      hgPressFeed.publish(pressInHg,1);
+      inTemp.publish(soilDryness,1);
+      outTemp.publish(airQuality,1);
+      leak.publish(tempF,1);
     }
     lastPubTime = millis();
   }

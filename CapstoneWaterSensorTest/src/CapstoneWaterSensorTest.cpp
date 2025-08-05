@@ -11,6 +11,8 @@
 
 const int WATERSENSOR=D5;
 float waterVal;
+const char* waterMsg;
+bool waterChange;
 
 // Let Device OS manage the connection to the Particle Cloud
 SYSTEM_MODE(AUTOMATIC);
@@ -26,6 +28,18 @@ void setup() {
 
 void loop() {
   waterVal=digitalRead(WATERSENSOR);
-  Serial.printf("%f\n",waterVal);
+  //Serial.printf("%f\n",waterVal);
+  
+  if ((waterChange =! waterChange)){
+    if ((waterVal == 0)){
+      waterMsg = "No leak or spill detected";
+    }
+    else{
+      waterMsg = "Possible leak or spill";
+    }
+      Serial.printf("%s\n",waterMsg);
+  }
+
+
   //delay(1000);
 }
