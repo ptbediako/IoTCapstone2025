@@ -38,11 +38,11 @@ bool waterChange;
 float inTempC,inTempF,outTempC,outTempF;
 const char DEGREE=0xF8;
 const char PCT=0x25;
-const int BME280=0x76;
-// const int BMEXXXX=0x77;
+const int OUTBME280=0x76;
+const int INBME280=0x77;
 bool status;
 Adafruit_BME280 bmeInner;
-//2ndBME bmeOuter;
+Adafruit_BME280 bmeOuter;
 bool tempProblem, leakProblem;
 
 //OLED
@@ -70,7 +70,8 @@ void setup() {
 
   status = bmeInner.begin(BME280);
    if (status == false){
-     Serial.printf("BME280 at address 0x%02x failed to start",BME280);
+     Serial.printf("InnerBME280 at address 0x%02x failed to start",INBME280);
+     Serial.printf("OuterBME280 at address 0x%02x failed to start",OUTBME280);
    }
 
   //  status = bmeOuter.begin(XXXXXXX);
@@ -111,9 +112,9 @@ void loop() {
 
   if((millis()-lastPubTime)>30000){
     if(mqtt.Update()){
-      inTemp.publish(inTempF,1);
-      outTemp.publish(outTempF,1);
-      leak.publish(waterVal,1);
+      inTemp.publish(inTempF);
+      outTemp.publish(outTempF);
+      leak.publish(waterVal);
     }
     lastPubTime = millis();
   }
