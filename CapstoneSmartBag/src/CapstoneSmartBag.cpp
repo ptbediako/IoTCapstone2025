@@ -242,16 +242,16 @@ void loop() {
   }
 
   if((shakerCount == 5)){
-    shakenTimer.startTimer(5000);
+    shakenTimer.startTimer(30000);
     bagShaken = 1;
   }
 
   if ((bagShaken==1)){
       display.setTextSize(1);
       display.setTextColor(WHITE);
-      display.setCursor(0,32);
+      display.setCursor(0,40);
       display.setRotation(2);
-      display.printf("Contents Shaken!");
+      display.printf("CONTENTS SHAKEN!");
 
     if((shakenTimer.isTimerReady())){
       bagShaken = 0;
