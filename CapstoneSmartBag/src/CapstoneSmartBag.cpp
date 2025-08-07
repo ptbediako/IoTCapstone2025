@@ -46,10 +46,9 @@ const char DEGREE=0xF8;
 const char PCT=0x25;
 const int OUTBME280=0x76;
 const int INBME280=0x77;
-bool status;
+bool statusOut, statusIn, dangerZone, cautionZone, leakSpill;
 Adafruit_BME280 bmeInner;
 Adafruit_BME280 bmeOuter;
-bool tempProblem, leakProblem;
 
 //OLED
 const int OLED_RESET=-1;
@@ -64,15 +63,17 @@ byte accel_z_h, accel_z_l;
 int16_t accel_x, accel_y, accel_z;
 float accelXG, accelYG, accelZG;
 float accelXGSq, accelYGSq,accelZGSq;
-float aTot, lastMaxATot;
+float aTot;
 const float CONVFACTOR= 0.0000612061;
+int leanTopple;
+bool bagShaken;
 
 float pitchDeg, pitchRad;
 float rollDeg, rollRad;
 float toppleDeg, toppleRad;
 
 //Timer
-IoTTimer timer; 
+IoTTimer tempDangerTimer, hiTempDangerTimer, tempCautionTimer, shakenTimer, postShakeTimer, fallTimer; 
 
 // Let Device OS manage the connection to the Particle Cloud
 SYSTEM_MODE(AUTOMATIC);
@@ -156,13 +157,13 @@ void loop() {
 
   //Serial.printf("%f\n",waterVal);
 
-  // display.clearDisplay();
-  // display.setTextSize(1);
-  // display.setTextColor(WHITE);
-  // display.setCursor(0,0);
-  // display.clearDisplay();
-  // display.printf("Danger Zone:\n40F-140F\n",inTempF,outTempF,waterVal);
-  // display.display();
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  display.clearDisplay();
+  display.printf("Danger Zone:\n40F-140F\n",inTempF,outTempF,waterVal);
+  display.display();
 
   //if(timer.isTimerReady()){
     //  ;
