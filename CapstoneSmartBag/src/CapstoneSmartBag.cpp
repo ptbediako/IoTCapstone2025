@@ -170,15 +170,13 @@ void loop() {
 
   //Serial.printf("%f\n",waterVal);
 
-  display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.setCursor(0,0);
   display.setRotation(2);
-  display.clearDisplay();
-  display.printf("Danger Zone: 40-140%cF\nInside Bag: %0.1f %cF\nOutside Bag: %0.1f %cF\n%s\n",DEGREE, DEGREE, inTempF, DEGREE, outTempF, DEGREE, waterMsg);
+  display.printf("Danger Zone 40-140%cF\nInside Bag: %0.1f %cF\nOutside Bag: %0.1f %cF\n%s\n",DEGREE, DEGREE, inTempF, DEGREE, outTempF, DEGREE, waterMsg);
   display.display();
-  
+  display.clearDisplay();
 
   //if(timer.isTimerReady()){
     //  ;
@@ -243,16 +241,25 @@ void loop() {
     shakerCount++;
   }
 
-  if((shakerCount > 5)){
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(0,0);
-    display.setRotation(2);
-    display.clearDisplay();
-    display.printf("Warning: Contents\nRecently Shaken!");
-    display.display();
+  if((shakerCount == 5)){
+    shakenTimer.startTimer(5000);
+    bagShaken = 1;
   }
+
+  if ((bagShaken==1)){
+      display.setTextSize(1);
+      display.setTextColor(WHITE);
+      display.setCursor(0,32);
+      display.setRotation(2);
+      display.printf("Contents Shaken!");
+
+    if((shakenTimer.isTimerReady())){
+      bagShaken = 0;
+      shakerCount = 0;
+    }
+  }
+
+    
 
   //Serial.printf("AccelXSq %.01f, AccelYSq %.01f, AccelZSq %.01f, Total Accel %.01f\n",accelXGSq,accelYGSq,accelZGSq,aTot);
   Serial.printf("Total Accel %.01f, Times Shaken %i\n",aTot, shakerCount);
