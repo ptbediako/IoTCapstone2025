@@ -40,13 +40,13 @@ int waterVal;
 const char* waterMsg;
 bool waterChange;
 
-//BME Variables--NEED 2 (ADDRESSES x76 AND x77)
+//BME Variables
 float inTempC,inTempF,outTempC,outTempF;
 const char DEGREE=0xF8;
 const char PCT=0x25;
 const int OUTBME280=0x76;
 const int INBME280=0x77;
-bool statusOut, statusIn, dangerZone, cautionZone, leakSpill;
+bool statusOut, statusIn, dangerZone, cautionZone;
 Adafruit_BME280 bmeInner;
 Adafruit_BME280 bmeOuter;
 
@@ -65,7 +65,7 @@ float accelXG, accelYG, accelZG;
 float accelXGSq, accelYGSq,accelZGSq;
 float aTot;
 const float CONVFACTOR= 0.0000612061;
-int leanTopple;
+bool leanTopple;
 bool bagShaken;
 
 float pitchDeg, pitchRad;
@@ -138,6 +138,14 @@ void loop() {
   Wire.endTransmission(false);
   Wire.requestFrom(MPU_ADDR,6,true);
 
+//Danger Zone- Reg Temp
+  if ((inTempF >= 40) && (inTempF <= 140)){
+    dangerZone=1;
+  }
+  else {
+    dangerZone=0;
+  }
+
 //Spill-Leak Detection
   if ((waterChange =! waterChange)){
     if ((waterVal == 0)){
@@ -165,8 +173,9 @@ void loop() {
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.setCursor(0,0);
+  display.setRotation(2);
   display.clearDisplay();
-  display.printf("Danger Zone: 40%cF-140%cF\nInside Bag: %0.1f %cF\nOutside Bag: %0.1f %cF\n%s\n",inTempF, DEGREE, outTempF, DEGREE, waterMsg);
+  display.printf("Danger Zone: 40-140%cF\nInside Bag: %0.1f %cF\nOutside Bag: %0.1f %cF\n%s\n",DEGREE, DEGREE, inTempF, DEGREE, outTempF, DEGREE, waterMsg);
   display.display();
 
   //if(timer.isTimerReady()){
@@ -194,6 +203,12 @@ void loop() {
 
   toppleRad = -asin(accelZG);
   toppleDeg = (360/(2*M_PI)) * pitchRad;
+  if ((toppleDeg <= -65)){
+    leanTopple=0; //Standing
+  }
+  if ((toppleDeg > -65)){
+    leanTopple=1; //Leaning or falling
+  }
 
   pitchRad = -asin(accelXG);
   pitchDeg = (360/(2*M_PI)) * pitchRad;
@@ -203,9 +218,9 @@ void loop() {
 
   //if((millis()-lastPrint)>5000){
     //Serial.printf("Raw Data Acceleration: X %i, Y %i, Z %i\n", accel_x, accel_y, accel_z);
-    Serial.printf("Converted Acceleration: X %fg, Y %fg, Z %fg\n", accelXG, accelYG, accelZG);
+    //Serial.printf("Converted Acceleration: X %fg, Y %fg, Z %fg\n", accelXG, accelYG, accelZG);
     //Serial.printf("Pitch Radians: %f, Degrees: %f\nRoll Radians: %f, Degrees: %f\n", pitchRad, pitchDeg, rollRad, rollDeg);
-    Serial.printf("Pitch Degrees: %f\n", toppleDeg);
+    Serial.printf("Topple Degrees: %f, Fall Status: %i\n", toppleDeg,leanTopple);
 
     //lastPrint=millis();
   //}
