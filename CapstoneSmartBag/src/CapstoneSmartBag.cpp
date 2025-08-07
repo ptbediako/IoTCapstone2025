@@ -73,7 +73,7 @@ float rollDeg, rollRad;
 float toppleDeg, toppleRad;
 
 //Timer
-IoTTimer tempDangerTimer, hiTempDangerTimer, tempCautionTimer, shakenTimer, postShakeTimer, fallTimer; 
+IoTTimer tempDangerTimer, hiTempDangerTimer, shakenTimer, postShakeTimer, fallTimer; 
 
 // Let Device OS manage the connection to the Particle Cloud
 SYSTEM_MODE(AUTOMATIC);
@@ -98,13 +98,13 @@ void setup() {
   }
   Serial.printf("\n\n");
 
-  status = bmeOuter.begin(OUTBME280);
-   if (status == false){
+  statusOut = bmeOuter.begin(OUTBME280);
+   if (statusOut == false){
      Serial.printf("OuterBME280 at address 0x%02x failed to start",OUTBME280);
    }
 
-   status = bmeInner.begin(INBME280);
-   if (status == false){
+   statusIn = bmeInner.begin(INBME280);
+   if (statusIn == false){
       Serial.printf("InnerBME280 at address 0x%02x failed to start",INBME280);
    }
 
@@ -113,7 +113,11 @@ void setup() {
 
   pinMode(WATERSENSOR,INPUT);
 
-  timer.startTimer(10);
+  tempDangerTimer.startTimer(10);
+  hiTempDangerTimer.startTimer(10);
+  shakenTimer.startTimer(10);
+  postShakeTimer.startTimer(10);
+  fallTimer.startTimer(10);
 }
 
 /********************************************************************/
@@ -137,10 +141,10 @@ void loop() {
 //Spill-Leak Detection
   if ((waterChange =! waterChange)){
     if ((waterVal == 0)){
-      waterMsg = "No leak or spill detected";
+      waterMsg = "No spills detected";
     }
     else{
-      waterMsg = "Possible leak or spill";
+      waterMsg = "Possible spill";
     }
       // Serial.printf("%s\n",waterMsg);
   }
@@ -162,7 +166,7 @@ void loop() {
   display.setTextColor(WHITE);
   display.setCursor(0,0);
   display.clearDisplay();
-  display.printf("Danger Zone:\n40F-140F\n",inTempF,outTempF,waterVal);
+  display.printf("Danger Zone: 40%cF-140%cF\nInside Bag: %0.1f %cF\nOutside Bag: %0.1f %cF\n%s\n",inTempF, DEGREE, outTempF, DEGREE, waterMsg);
   display.display();
 
   //if(timer.isTimerReady()){
