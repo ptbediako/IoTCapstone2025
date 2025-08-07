@@ -54,6 +54,7 @@ Adafruit_BME280 bmeOuter;
 const int OLED_RESET=-1;
 Adafruit_SSD1306 display(OLED_RESET);
 const int OLEDADDR=0x3C;
+int lastDisplayTime;
 
 //MPU
 const int MPU_ADDR=0x68;
@@ -174,9 +175,10 @@ void loop() {
   display.setTextColor(WHITE);
   display.setCursor(0,0);
   display.setRotation(2);
-  // display.clearDisplay();
+  display.clearDisplay();
   display.printf("Danger Zone: 40-140%cF\nInside Bag: %0.1f %cF\nOutside Bag: %0.1f %cF\n%s\n",DEGREE, DEGREE, inTempF, DEGREE, outTempF, DEGREE, waterMsg);
   display.display();
+  
 
   //if(timer.isTimerReady()){
     //  ;
@@ -247,7 +249,7 @@ void loop() {
     display.setTextColor(WHITE);
     display.setCursor(0,0);
     display.setRotation(2);
-    // display.clearDisplay();
+    display.clearDisplay();
     display.printf("Warning: Contents\nRecently Shaken!");
     display.display();
   }
