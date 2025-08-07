@@ -65,7 +65,7 @@ float accelXG, accelYG, accelZG;
 float accelXGSq, accelYGSq,accelZGSq;
 float aTot;
 const float CONVFACTOR= 0.0000612061;
-bool leanTopple;
+int leanTopple, shakerCount;
 bool bagShaken;
 
 float pitchDeg, pitchRad;
@@ -117,7 +117,7 @@ void setup() {
   hiTempDangerTimer.startTimer(10);
   shakenTimer.startTimer(10);
   postShakeTimer.startTimer(10);
-  fallTimer.startTimer(10);
+
 }
 
 /********************************************************************/
@@ -174,7 +174,7 @@ void loop() {
   display.setTextColor(WHITE);
   display.setCursor(0,0);
   display.setRotation(2);
-  display.clearDisplay();
+  // display.clearDisplay();
   display.printf("Danger Zone: 40-140%cF\nInside Bag: %0.1f %cF\nOutside Bag: %0.1f %cF\n%s\n",DEGREE, DEGREE, inTempF, DEGREE, outTempF, DEGREE, waterMsg);
   display.display();
 
@@ -203,12 +203,18 @@ void loop() {
 
   toppleRad = -asin(accelZG);
   toppleDeg = (360/(2*M_PI)) * pitchRad;
-  if ((toppleDeg <= -65)){
-    leanTopple=0; //Standing
-  }
-  if ((toppleDeg > -65)){
-    leanTopple=1; //Leaning or falling
-  }
+
+
+    if ((toppleDeg <= -75)){
+      leanTopple=0; //Standing
+    }
+    if ((toppleDeg > -75) && (toppleDeg <= -65 )){
+      leanTopple=1; //Leaning or falling 
+    }
+    if ((toppleDeg > -65)){
+      leanTopple=2; //Leaning or falling
+    }
+  //Serial.printf("Topple Degrees: %.0f, Fall Status: %i\n", toppleDeg,leanTopple);
 
   pitchRad = -asin(accelXG);
   pitchDeg = (360/(2*M_PI)) * pitchRad;
@@ -220,7 +226,7 @@ void loop() {
     //Serial.printf("Raw Data Acceleration: X %i, Y %i, Z %i\n", accel_x, accel_y, accel_z);
     //Serial.printf("Converted Acceleration: X %fg, Y %fg, Z %fg\n", accelXG, accelYG, accelZG);
     //Serial.printf("Pitch Radians: %f, Degrees: %f\nRoll Radians: %f, Degrees: %f\n", pitchRad, pitchDeg, rollRad, rollDeg);
-    Serial.printf("Topple Degrees: %f, Fall Status: %i\n", toppleDeg,leanTopple);
+    // Serial.printf("Topple Degrees: %f, Fall Status: %i\n", toppleDeg,leanTopple);
 
     //lastPrint=millis();
   //}
@@ -230,6 +236,24 @@ void loop() {
   accelYGSq=pow(accelYG,2);
   accelZGSq=pow(accelZG,2);
   aTot=sqrt(accelXGSq + accelYGSq + accelZGSq);
+
+  if((aTot > 2.2 )){
+    shakerCount++;
+  }
+
+  if((shakerCount > 5)){
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(WHITE);
+    display.setCursor(0,0);
+    display.setRotation(2);
+    // display.clearDisplay();
+    display.printf("Warning: Contents\nRecently Shaken!");
+    display.display();
+  }
+
+  //Serial.printf("AccelXSq %.01f, AccelYSq %.01f, AccelZSq %.01f, Total Accel %.01f\n",accelXGSq,accelYGSq,accelZGSq,aTot);
+  Serial.printf("Total Accel %.01f, Times Shaken %i\n",aTot, shakerCount);
 }
 
 // /*********************************************************************/
