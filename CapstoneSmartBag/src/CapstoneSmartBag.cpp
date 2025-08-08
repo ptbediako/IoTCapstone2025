@@ -29,6 +29,8 @@ Adafruit_MQTT_SPARK mqtt(&TheClient,AIO_SERVER,AIO_SERVERPORT,AIO_USERNAME,AIO_K
 Adafruit_MQTT_Publish inTemp = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.insidebagtemp");
 Adafruit_MQTT_Publish outTemp = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.outsidebagtemp");
 Adafruit_MQTT_Publish leak = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.leakindicator");
+//Adafruit_MQTT_Publish dzTime = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.DZTimeElapse");
+//Adafruit_MQTT_Publish leak = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.leakindicator");
 
 float pubValue;
 void MQTT_connect();
@@ -51,7 +53,8 @@ bool statusOut, statusIn;
 int dangerZone;
 Adafruit_BME280 bmeInner;
 Adafruit_BME280 bmeOuter;
-unsigned long dzTime;
+float dangerTimer, timeElapsed, formatTime;
+const char* dangerMsg;
 
 //OLED
 const int OLED_RESET=-1;
@@ -82,7 +85,8 @@ IoTTimer tempDangerTimer, hiTempDangerTimer, shakenTimer, postShakeTimer, fallTi
 // Let Device OS manage the connection to the Particle Cloud
 SYSTEM_MODE(AUTOMATIC);
 
-/*******************************************************************/
+/*********************************************************************/
+/*********************************************************************/
 void setup() {
   Serial.begin(9600);
   waitFor(Serial.isConnected,10000);
@@ -119,7 +123,8 @@ void setup() {
 
 }
 
-/********************************************************************/
+/*********************************************************************/
+/*********************************************************************/
 void loop() {
   MQTT_connect();
   MQTT_ping();
@@ -136,36 +141,78 @@ void loop() {
   Wire.write(0x3B);
   Wire.endTransmission(false);
   Wire.requestFrom(MPU_ADDR,6,true);
+  Serial.printf("Millis %i\n",millis());
 
 //Danger Zone Var's
 //Safe zone
   if ((inTempF <= 35) || (inTempF >= 150)){
     dangerZone = 0;
+    dangerMsg = "Temp: Safe";
   }
 
 //Caution Zone
   if (((inTempF > 35) && (inTempF < 40)) || ((inTempF > 140) && (inTempF < 150))){
     dangerZone = 1;
+    dangerMsg = "Temp: Caution";
   }
 
 //Danger Zone- Reg Temp Outside
   if ((inTempF >= 40) && (inTempF <= 140) && (outTempF < 90)){
     dangerZone=2;
     tempDangerTimer.startTimer(20000);
+    dangerMsg = "Danger Zone";
+    // Serial.printf("Millis: %f Danger Zone Time: %f\n",dangerTimer, timeElapsed);
+    //Serial.printf("Danger Zone Time: %f\n",dangerTimer);
+
   }
-  if (tempDangerTimer.isTimerReady()){
-    // display.setTextSize(1);
-    // display.setTextColor(WHITE);
-    // display.setCursor(0,32);
-    // display.setRotation(2);
-    // display.printf("Danger Zone Time Exceeded");
-  }
+  // if (tempDangerTimer.isTimerReady()){
+  //   // display.setTextSize(1);
+  //   // display.setTextColor(WHITE);
+  //   // display.setCursor(0,32);
+  //   // display.setRotation(2);
+  //   // display.printf("Danger Time Exceeded");
+  // }
 
 //Danger Zone- High Temp Outside
   if (((inTempF >= 40) && (inTempF <= 140)) && (outTempF >=90)) {
     dangerZone=3;
     hiTempDangerTimer.startTimer(10000);
+    dangerMsg = "HiTemp Danger Zone";
+    // Serial.printf("Millis: %f HiTemp Danger Zone Time: %f\n", dangerTimer, timeElapsed);
+    // Serial.printf("HiTemp Danger Zone Time: %f\n", dangerTimer);
   }
+  // if (hiTempDangerTimer.isTimerReady()){
+  //   // display.setTextSize(1);
+  //   // display.setTextColor(WHITE);
+  //   // display.setCursor(0,32);
+  //   // display.setRotation(2);
+  //   // display.printf("Danger Time Exceeded");
+  // }
+
+float dzTime, lastDangerTime;
+  if((dangerZone == 3) || (dangerZone == 4)){
+    dangerTimer = millis();
+  }
+
+  for (dzTime = 0; dzTime >= 120; dzTime++){
+    while ((dangerZone == 3) || (dangerZone == 4)){
+      if((dangerTimer - lastDangerTime == 2000)){
+        dzTime++;
+      } 
+      lastDangerTime=dangerTimer;
+    }
+  }
+  //Serial.printf("Time Elapsed %.01f\n",dzTime);
+  // if ((dangerZone == 3) || (dangerZone == 4)){
+  //   dangerTimer = millis()/1000.0;
+    //Time.format(timeElapsed, "%I:%M");
+    //Serial.printf("Millis: %i Danger Zone Time: %i",dangerTimer, timeElapsed);
+  // }
+
+  // while ((dangerZone == 3) || (dangerZone == 4)){
+  //   timeElapsed= (millis()-dangerTimer);
+  // }
+
 
 //Spill-Leak Detection
   if ((waterChange =! waterChange)){
@@ -184,6 +231,7 @@ void loop() {
       inTemp.publish(inTempF);
       outTemp.publish(outTempF);
       leak.publish(waterVal);
+//      dzTime.publish(timeElapsed);
     }
     lastPubTime = millis();
   }
@@ -194,7 +242,7 @@ void loop() {
   display.setTextColor(WHITE);
   display.setCursor(0,0);
   display.setRotation(2);
-  display.printf("Inner Temp: %.01f %cF\nOuter Temp: %.01f %cF\nDanger Time Exceeded\n%s\n",inTempF, DEGREE, outTempF, DEGREE, waterMsg);
+  display.printf("Inner Temp: %.01f %cF\nOuter Temp: %.01f %cF\n%s\n%s\n",inTempF, DEGREE, outTempF, DEGREE, dangerMsg, waterMsg);
   display.display();
   display.clearDisplay();
 
@@ -279,10 +327,11 @@ void loop() {
     }
   }
   //Serial.printf("AccelXSq %.01f, AccelYSq %.01f, AccelZSq %.01f, Total Accel %.01f\n",accelXGSq,accelYGSq,accelZGSq,aTot);
-  Serial.printf("Total Accel %.01f, Times Shaken %i\n",aTot, shakerCount);
+  //Serial.printf("Total Accel %.01f, Times Shaken %i\n",aTot, shakerCount);
 }
 
-// /*********************************************************************/
+/*********************************************************************/
+/*********************************************************************/
 void MQTT_connect() {
   int8_t ret;
  
@@ -302,7 +351,8 @@ void MQTT_connect() {
   Serial.printf("MQTT Connected!\n");
 }
 
-// /************************************************************/
+/*********************************************************************/
+/*********************************************************************/
 bool MQTT_ping() {
   static unsigned int last;
   bool pingStatus;
