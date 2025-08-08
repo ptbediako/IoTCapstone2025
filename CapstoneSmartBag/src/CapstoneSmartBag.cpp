@@ -53,7 +53,7 @@ bool statusOut, statusIn;
 int dangerZone;
 Adafruit_BME280 bmeInner;
 Adafruit_BME280 bmeOuter;
-float dangerTimer, timeElapsed, formatTime;
+float dangerTimer, hiDangerTimer, dangerTimerSec, hiDangerTimerSec, timeElapsed, formatTime;
 const char* dangerMsg;
 
 //OLED
@@ -141,7 +141,6 @@ void loop() {
   Wire.write(0x3B);
   Wire.endTransmission(false);
   Wire.requestFrom(MPU_ADDR,6,true);
-  Serial.printf("Millis %i\n",millis());
 
 //Danger Zone Var's
 //Safe zone
@@ -165,6 +164,10 @@ void loop() {
     //Serial.printf("Danger Zone Time: %f\n",dangerTimer);
 
   }
+  if ((dangerZone == 2)){
+   dangerTimerSec = millis()/1000.0;
+   dangerTimer = (dangerTimerSec/60.0);
+  }
   // if (tempDangerTimer.isTimerReady()){
   //   // display.setTextSize(1);
   //   // display.setTextColor(WHITE);
@@ -181,6 +184,10 @@ void loop() {
     // Serial.printf("Millis: %f HiTemp Danger Zone Time: %f\n", dangerTimer, timeElapsed);
     // Serial.printf("HiTemp Danger Zone Time: %f\n", dangerTimer);
   }
+  if ((dangerZone == 3)){
+    hiDangerTimerSec = millis()/1000.0;
+    hiDangerTimer = (hiDangerTimerSec/60.0);
+  }
   // if (hiTempDangerTimer.isTimerReady()){
   //   // display.setTextSize(1);
   //   // display.setTextColor(WHITE);
@@ -189,19 +196,16 @@ void loop() {
   //   // display.printf("Danger Time Exceeded");
   // }
 
-float dzTime, lastDangerTime;
-  if((dangerZone == 3) || (dangerZone == 4)){
-    dangerTimer = millis();
-  }
+  Serial.printf("Danger (mins) %.0f HiDanger (mins) %.0f\n",dangerTimer,hiDangerTimer);
 
-  for (dzTime = 0; dzTime >= 120; dzTime++){
-    while ((dangerZone == 3) || (dangerZone == 4)){
-      if((dangerTimer - lastDangerTime == 2000)){
-        dzTime++;
-      } 
-      lastDangerTime=dangerTimer;
-    }
-  }
+  // for (dzTime = 0; dzTime >= 120; dzTime++){
+  //   while ((dangerZone == 3) || (dangerZone == 4)){
+  //     if((dangerTimer - lastDangerTime == 2000)){
+  //       dzTime++;
+  //     } 
+  //     lastDangerTime=dangerTimer;
+  //   }
+  // }
   //Serial.printf("Time Elapsed %.01f\n",dzTime);
   // if ((dangerZone == 3) || (dangerZone == 4)){
   //   dangerTimer = millis()/1000.0;
@@ -222,7 +226,6 @@ float dzTime, lastDangerTime;
     else{
       waterMsg = "Possible spill";
     }
-      // Serial.printf("%s\n",waterMsg);
   }
 
 //Publish to Adafruit
@@ -236,8 +239,6 @@ float dzTime, lastDangerTime;
     lastPubTime = millis();
   }
 
-  //Serial.printf("%f\n",waterVal);
-
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.setCursor(0,0);
@@ -245,10 +246,6 @@ float dzTime, lastDangerTime;
   display.printf("Inner Temp: %.01f %cF\nOuter Temp: %.01f %cF\n%s\n%s\n",inTempF, DEGREE, outTempF, DEGREE, dangerMsg, waterMsg);
   display.display();
   display.clearDisplay();
-
-  //if(timer.isTimerReady()){
-    //  ;
-    //}
 
 //Accelerometer Pt 1- Topple Detector
   accel_x_h = Wire.read();
