@@ -24,14 +24,15 @@
 // I2c device found at address 0x77 - BME2 (inner)
 
 //Adafruit Publishing
-//TCPClient TheClient;
-//Adafruit_MQTT_Publish inTemp = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.insidebagtemp");
-//Adafruit_MQTT_Publish outTemp = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.outsidebagtemp");
-//Adafruit_MQTT_Publish leak = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.leakindicator");
+TCPClient TheClient;
+Adafruit_MQTT_SPARK mqtt(&TheClient,AIO_SERVER,AIO_SERVERPORT,AIO_USERNAME,AIO_KEY); 
+Adafruit_MQTT_Publish inTemp = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.insidebagtemp");
+Adafruit_MQTT_Publish outTemp = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.outsidebagtemp");
+Adafruit_MQTT_Publish leak = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.leakindicator");
 
 float pubValue;
 void MQTT_connect();
-void MQTT_ping();
+bool MQTT_ping();
 unsigned int lastPubTime; //maybe for printing at regular intervals?
 
 //Water Sensor
@@ -46,9 +47,11 @@ const char DEGREE=0xF8;
 const char PCT=0x25;
 const int OUTBME280=0x76;
 const int INBME280=0x77;
-bool statusOut, statusIn, dangerZone, cautionZone;
+bool statusOut, statusIn;
+int dangerZone;
 Adafruit_BME280 bmeInner;
 Adafruit_BME280 bmeOuter;
+unsigned long dzTime;
 
 //OLED
 const int OLED_RESET=-1;
@@ -114,17 +117,12 @@ void setup() {
 
   pinMode(WATERSENSOR,INPUT);
 
-  tempDangerTimer.startTimer(10);
-  hiTempDangerTimer.startTimer(10);
-  shakenTimer.startTimer(10);
-  postShakeTimer.startTimer(10);
-
 }
 
 /********************************************************************/
 void loop() {
-  // MQTT_connect();
-  // MQTT_ping();
+  MQTT_connect();
+  MQTT_ping();
 
   inTempC=bmeInner.readTemperature();
   inTempF=(inTempC*1.8)+32;
@@ -139,12 +137,34 @@ void loop() {
   Wire.endTransmission(false);
   Wire.requestFrom(MPU_ADDR,6,true);
 
-//Danger Zone- Reg Temp
-  if ((inTempF >= 40) && (inTempF <= 140)){
-    dangerZone=1;
+//Danger Zone Var's
+//Safe zone
+  if ((inTempF <= 35) || (inTempF >= 150)){
+    dangerZone = 0;
   }
-  else {
-    dangerZone=0;
+
+//Caution Zone
+  if (((inTempF > 35) && (inTempF < 40)) || ((inTempF > 140) && (inTempF < 150))){
+    dangerZone = 1;
+  }
+
+//Danger Zone- Reg Temp Outside
+  if ((inTempF >= 40) && (inTempF <= 140) && (outTempF < 90)){
+    dangerZone=2;
+    tempDangerTimer.startTimer(20000);
+  }
+  if (tempDangerTimer.isTimerReady()){
+    // display.setTextSize(1);
+    // display.setTextColor(WHITE);
+    // display.setCursor(0,32);
+    // display.setRotation(2);
+    // display.printf("Danger Zone Time Exceeded");
+  }
+
+//Danger Zone- High Temp Outside
+  if (((inTempF >= 40) && (inTempF <= 140)) && (outTempF >=90)) {
+    dangerZone=3;
+    hiTempDangerTimer.startTimer(10000);
   }
 
 //Spill-Leak Detection
@@ -159,14 +179,14 @@ void loop() {
   }
 
 //Publish to Adafruit
-  // if((millis()-lastPubTime)>30000){
-  //   if(mqtt.Update()){
-  //     inTemp.publish(inTempF);
-  //     outTemp.publish(outTempF);
-  //     leak.publish(waterVal);
-  //   }
-  //   lastPubTime = millis();
-  // }
+  if((millis()-lastPubTime)>30000){
+    if(mqtt.Update()){
+      inTemp.publish(inTempF);
+      outTemp.publish(outTempF);
+      leak.publish(waterVal);
+    }
+    lastPubTime = millis();
+  }
 
   //Serial.printf("%f\n",waterVal);
 
@@ -174,7 +194,7 @@ void loop() {
   display.setTextColor(WHITE);
   display.setCursor(0,0);
   display.setRotation(2);
-  display.printf("Danger Zone 40-140%cF\nInside Bag: %0.1f %cF\nOutside Bag: %0.1f %cF\n%s\n",DEGREE, DEGREE, inTempF, DEGREE, outTempF, DEGREE, waterMsg);
+  display.printf("Inner Temp: %.01f %cF\nOuter Temp: %.01f %cF\nDanger Time Exceeded\n%s\n",inTempF, DEGREE, outTempF, DEGREE, waterMsg);
   display.display();
   display.clearDisplay();
 
@@ -209,10 +229,10 @@ void loop() {
       leanTopple=0; //Standing
     }
     if ((toppleDeg > -75) && (toppleDeg <= -65 )){
-      leanTopple=1; //Leaning or falling 
+      leanTopple=1; //Leaning
     }
     if ((toppleDeg > -65)){
-      leanTopple=2; //Leaning or falling
+      leanTopple=2; //Falling
     }
   //Serial.printf("Topple Degrees: %.0f, Fall Status: %i\n", toppleDeg,leanTopple);
 
@@ -242,14 +262,14 @@ void loop() {
   }
 
   if((shakerCount == 5)){
-    shakenTimer.startTimer(30000);
+    shakenTimer.startTimer(7000);
     bagShaken = 1;
   }
 
   if ((bagShaken==1)){
       display.setTextSize(1);
       display.setTextColor(WHITE);
-      display.setCursor(0,40);
+      display.setCursor(0,48);
       display.setRotation(2);
       display.printf("CONTENTS SHAKEN!");
 
@@ -258,46 +278,43 @@ void loop() {
       shakerCount = 0;
     }
   }
-
-    
-
   //Serial.printf("AccelXSq %.01f, AccelYSq %.01f, AccelZSq %.01f, Total Accel %.01f\n",accelXGSq,accelYGSq,accelZGSq,aTot);
   Serial.printf("Total Accel %.01f, Times Shaken %i\n",aTot, shakerCount);
 }
 
 // /*********************************************************************/
-// void MQTT_connect() {
-//   int8_t ret;
+void MQTT_connect() {
+  int8_t ret;
  
-//   // Return if already connected.
-//   if (mqtt.connected()) {
-//     return;
-//   }
+  // Return if already connected.
+  if (mqtt.connected()) {
+    return;
+  }
  
-//   Serial.print("Connecting to MQTT... ");
+  Serial.print("Connecting to MQTT... ");
  
-//   while ((ret = mqtt.connect()) != 0) { // connect will return 0 for connected
-//        Serial.printf("Error Code %s\n",mqtt.connectErrorString(ret));
-//        Serial.printf("Retrying MQTT connection in 5 seconds...\n");
-//        mqtt.disconnect();
-//        delay(5000);  // wait 5 seconds and try again
-//   }
-//   Serial.printf("MQTT Connected!\n");
-// }
+  while ((ret = mqtt.connect()) != 0) { // connect will return 0 for connected
+       Serial.printf("Error Code %s\n",mqtt.connectErrorString(ret));
+       Serial.printf("Retrying MQTT connection in 5 seconds...\n");
+       mqtt.disconnect();
+       delay(5000);  // wait 5 seconds and try again
+  }
+  Serial.printf("MQTT Connected!\n");
+}
 
 // /************************************************************/
-// bool MQTT_ping() {
-//   static unsigned int last;
-//   bool pingStatus;
+bool MQTT_ping() {
+  static unsigned int last;
+  bool pingStatus;
 
-//   if ((millis()-last)>120000) {
-//       Serial.printf("Pinging MQTT \n");
-//       pingStatus = mqtt.ping();
-//       if(!pingStatus) {
-//         Serial.printf("Disconnecting \n");
-//         mqtt.disconnect();
-//       }
-//       last = millis();
-//   }
-//   return pingStatus;
-// }
+  if ((millis()-last)>120000) {
+      Serial.printf("Pinging MQTT \n");
+      pingStatus = mqtt.ping();
+      if(!pingStatus) {
+        Serial.printf("Disconnecting \n");
+        mqtt.disconnect();
+      }
+      last = millis();
+  }
+  return pingStatus;
+}
