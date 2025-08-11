@@ -29,10 +29,12 @@ Adafruit_MQTT_SPARK mqtt(&TheClient,AIO_SERVER,AIO_SERVERPORT,AIO_USERNAME,AIO_K
 Adafruit_MQTT_Publish inTemp = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.insidebagtemp");
 Adafruit_MQTT_Publish outTemp = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.outsidebagtemp");
 Adafruit_MQTT_Publish leak = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.leakindicator");
-//Adafruit_MQTT_Publish dzTime = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.DZTimeElapse");
-//Adafruit_MQTT_Publish leak = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.leakindicator");
+Adafruit_MQTT_Publish tempMsg = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.tempstatusmsg");
+Adafruit_MQTT_Publish dzTimeMins = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.dangerzonemins");
+Adafruit_MQTT_Publish hiDzTimeMins = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.hidangerzonemins");
+Adafruit_MQTT_Publish bagShake = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.bagshakeindicator");
+Adafruit_MQTT_Publish fallLean = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/iotcapstone.bagfallleanindicator");
 
-float pubValue;
 void MQTT_connect();
 bool MQTT_ping();
 unsigned int lastPubTime; //maybe for printing at regular intervals?
@@ -53,7 +55,7 @@ bool statusOut, statusIn;
 int dangerZone;
 Adafruit_BME280 bmeInner;
 Adafruit_BME280 bmeOuter;
-float dangerTimer, hiDangerTimer, dangerTimerSec, hiDangerTimerSec, timeElapsed, formatTime;
+float dangerTimeMins, hiDangerTimeMins, dangerTimeSec, hiDangerTimeSec;
 const char* dangerMsg;
 
 //OLED
@@ -68,19 +70,15 @@ byte accel_x_h, accel_x_l;
 byte accel_y_h, accel_y_l;
 byte accel_z_h, accel_z_l;
 int16_t accel_x, accel_y, accel_z;
-float accelXG, accelYG, accelZG;
-float accelXGSq, accelYGSq,accelZGSq;
-float aTot;
+float accelXG, accelYG, accelZG, accelXGSq, accelYGSq,accelZGSq, aTot;
+float pitchDeg, pitchRad, rollDeg, rollRad, toppleDeg, toppleRad;
 const float CONVFACTOR= 0.0000612061;
 int leanTopple, shakerCount;
 bool bagShaken;
-
-float pitchDeg, pitchRad;
-float rollDeg, rollRad;
-float toppleDeg, toppleRad;
+const char* shakeMsg;
 
 //Timer
-IoTTimer tempDangerTimer, hiTempDangerTimer, shakenTimer, postShakeTimer, fallTimer; 
+IoTTimer tempDangerTimer, hiTempDangerTimer, shakenTimer; 
 
 // Let Device OS manage the connection to the Particle Cloud
 SYSTEM_MODE(AUTOMATIC);
@@ -146,27 +144,29 @@ void loop() {
 //Safe zone
   if ((inTempF <= 35) || (inTempF >= 150)){
     dangerZone = 0;
-    dangerMsg = "Temp: Safe";
+    dangerMsg = "Safe Zone Temp";
   }
 
 //Caution Zone
   if (((inTempF > 35) && (inTempF < 40)) || ((inTempF > 140) && (inTempF < 150))){
     dangerZone = 1;
-    dangerMsg = "Temp: Caution";
+    dangerMsg = "Caution Zone Temp";
   }
 
 //Danger Zone- Reg Temp Outside
   if ((inTempF >= 40) && (inTempF <= 140) && (outTempF < 90)){
     dangerZone=2;
-    tempDangerTimer.startTimer(20000);
-    dangerMsg = "Danger Zone";
-    // Serial.printf("Millis: %f Danger Zone Time: %f\n",dangerTimer, timeElapsed);
+    dangerMsg = "Danger Zone Temp";
+    // tempDangerTimer.startTimer(20000);
     //Serial.printf("Danger Zone Time: %f\n",dangerTimer);
 
   }
   if ((dangerZone == 2)){
-   dangerTimerSec = millis()/1000.0;
-   dangerTimer = (dangerTimerSec/60.0);
+   dangerTimeSec = millis()/1000.0;
+   dangerTimeMins = (dangerTimeSec/60.0);
+   if((dangerTimeMins > 999)){
+    dangerTimeMins = 999;
+   }
   }
   // if (tempDangerTimer.isTimerReady()){
   //   // display.setTextSize(1);
@@ -179,14 +179,16 @@ void loop() {
 //Danger Zone- High Temp Outside
   if (((inTempF >= 40) && (inTempF <= 140)) && (outTempF >=90)) {
     dangerZone=3;
-    hiTempDangerTimer.startTimer(10000);
     dangerMsg = "HiTemp Danger Zone";
-    // Serial.printf("Millis: %f HiTemp Danger Zone Time: %f\n", dangerTimer, timeElapsed);
+    // hiTempDangerTimer.startTimer(10000);
     // Serial.printf("HiTemp Danger Zone Time: %f\n", dangerTimer);
   }
   if ((dangerZone == 3)){
-    hiDangerTimerSec = millis()/1000.0;
-    hiDangerTimer = (hiDangerTimerSec/60.0);
+    hiDangerTimeSec = millis()/1000.0;
+    hiDangerTimeMins = (hiDangerTimeSec/60.0);
+    if((hiDangerTimeMins > 999)){
+      hiDangerTimeMins = 999;
+    }
   }
   // if (hiTempDangerTimer.isTimerReady()){
   //   // display.setTextSize(1);
@@ -196,27 +198,7 @@ void loop() {
   //   // display.printf("Danger Time Exceeded");
   // }
 
-  Serial.printf("Danger (mins) %.0f HiDanger (mins) %.0f\n",dangerTimer,hiDangerTimer);
-
-  // for (dzTime = 0; dzTime >= 120; dzTime++){
-  //   while ((dangerZone == 3) || (dangerZone == 4)){
-  //     if((dangerTimer - lastDangerTime == 2000)){
-  //       dzTime++;
-  //     } 
-  //     lastDangerTime=dangerTimer;
-  //   }
-  // }
-  //Serial.printf("Time Elapsed %.01f\n",dzTime);
-  // if ((dangerZone == 3) || (dangerZone == 4)){
-  //   dangerTimer = millis()/1000.0;
-    //Time.format(timeElapsed, "%I:%M");
-    //Serial.printf("Millis: %i Danger Zone Time: %i",dangerTimer, timeElapsed);
-  // }
-
-  // while ((dangerZone == 3) || (dangerZone == 4)){
-  //   timeElapsed= (millis()-dangerTimer);
-  // }
-
+  Serial.printf("Danger (mins) %.0f HiDanger (mins) %.0f\n",dangerTimeMins,hiDangerTimeMins);
 
 //Spill-Leak Detection
   if ((waterChange =! waterChange)){
@@ -228,24 +210,6 @@ void loop() {
     }
   }
 
-//Publish to Adafruit
-  if((millis()-lastPubTime)>30000){
-    if(mqtt.Update()){
-      inTemp.publish(inTempF);
-      outTemp.publish(outTempF);
-      leak.publish(waterVal);
-//      dzTime.publish(timeElapsed);
-    }
-    lastPubTime = millis();
-  }
-
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.setCursor(0,0);
-  display.setRotation(2);
-  display.printf("Inner Temp: %.01f %cF\nOuter Temp: %.01f %cF\n%s\n%s\n",inTempF, DEGREE, outTempF, DEGREE, dangerMsg, waterMsg);
-  display.display();
-  display.clearDisplay();
 
 //Accelerometer Pt 1- Topple Detector
   accel_x_h = Wire.read();
@@ -270,15 +234,15 @@ void loop() {
   toppleDeg = (360/(2*M_PI)) * pitchRad;
 
 
-    if ((toppleDeg <= -75)){
-      leanTopple=0; //Standing
-    }
-    if ((toppleDeg > -75) && (toppleDeg <= -65 )){
-      leanTopple=1; //Leaning
-    }
-    if ((toppleDeg > -65)){
-      leanTopple=2; //Falling
-    }
+  if ((toppleDeg <= -75)){
+    leanTopple=0; //Standing
+  }
+  if ((toppleDeg > -75) && (toppleDeg <= -65 )){
+    leanTopple=1; //Leaning
+  }
+  if ((toppleDeg > -65)){
+    leanTopple=2; //Falling
+  }
   //Serial.printf("Topple Degrees: %.0f, Fall Status: %i\n", toppleDeg,leanTopple);
 
   pitchRad = -asin(accelXG);
@@ -287,14 +251,10 @@ void loop() {
   rollRad = atan2(accelYG,accelZG);
   rollDeg = (360/(2*M_PI)) * rollRad;
 
-  //if((millis()-lastPrint)>5000){
     //Serial.printf("Raw Data Acceleration: X %i, Y %i, Z %i\n", accel_x, accel_y, accel_z);
     //Serial.printf("Converted Acceleration: X %fg, Y %fg, Z %fg\n", accelXG, accelYG, accelZG);
     //Serial.printf("Pitch Radians: %f, Degrees: %f\nRoll Radians: %f, Degrees: %f\n", pitchRad, pitchDeg, rollRad, rollDeg);
     // Serial.printf("Topple Degrees: %f, Fall Status: %i\n", toppleDeg,leanTopple);
-
-    //lastPrint=millis();
-  //}
 
 //Accelerometer Pt 2- Shaken Goodies Detector (use code like the shock assignment)
   accelXGSq=pow(accelXG,2);
@@ -323,8 +283,31 @@ void loop() {
       shakerCount = 0;
     }
   }
-  //Serial.printf("AccelXSq %.01f, AccelYSq %.01f, AccelZSq %.01f, Total Accel %.01f\n",accelXGSq,accelYGSq,accelZGSq,aTot);
-  //Serial.printf("Total Accel %.01f, Times Shaken %i\n",aTot, shakerCount);
+  Serial.printf("Total Accel %.01f, Times Shaken %i\n",aTot, shakerCount);
+
+//Publish to Adafruit
+  if((millis()-lastPubTime)>30000){
+    if(mqtt.Update()){
+      inTemp.publish(inTempF);
+      outTemp.publish(outTempF);
+      leak.publish(waterVal);
+      tempMsg.publish(dangerMsg);
+      dzTimeMins.publish(dangerTimeMins);
+      hiDzTimeMins.publish(hiDangerTimeMins);
+      bagShake.publish(bagShaken);
+      fallLean.publish(leanTopple);
+    }
+    lastPubTime = millis();
+  }
+
+//Display on OLED
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  display.setRotation(2);
+  display.printf("Inner Temp: %.01f %cF\nOuter Temp: %.01f %cF\n%s\nDZ: %.0f of 120m max\nHiDZ: %.0f of 60m max\n%s",inTempF, DEGREE, outTempF, DEGREE, dangerMsg, dangerTimeMins, hiDangerTimeMins, waterMsg);
+  display.display();
+  display.clearDisplay();
 }
 
 /*********************************************************************/
