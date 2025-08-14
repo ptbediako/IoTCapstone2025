@@ -37,7 +37,7 @@ Adafruit_MQTT_Publish fallLean = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/fee
 
 void MQTT_connect();
 bool MQTT_ping();
-unsigned int lastPubTime; //maybe for printing at regular intervals?
+unsigned int lastPubTime, lastPubTime2; //maybe for printing at regular intervals?
 
 //Water Sensor
 const int WATERSENSOR=D5; //is more responsive at 5V than 3.3V
@@ -286,18 +286,24 @@ void loop() {
   Serial.printf("Total Accel %.01f, Times Shaken %i\n",aTot, shakerCount);
 
 //Publish to Adafruit
-  if((millis()-lastPubTime)>30000){
+  if((millis()-lastPubTime)>300000){
     if(mqtt.Update()){
-      inTemp.publish(inTempF);
-      outTemp.publish(outTempF);
-      leak.publish(waterVal);
-      tempMsg.publish(dangerMsg);
+      inTemp.publish(inTempF); //in-bag temp
+      outTemp.publish(outTempF); //outside bag temp
+      tempMsg.publish(dangerMsg); //safe, caution, danger, or hiTemp danger zone
       dzTimeMins.publish(dangerTimeMins);
       hiDzTimeMins.publish(hiDangerTimeMins);
-      bagShake.publish(bagShaken);
-      fallLean.publish(leanTopple);
     }
     lastPubTime = millis();
+  }
+
+  if((millis()-lastPubTime2)>120000){
+    if(mqtt.Update()){
+      leak.publish(waterVal);
+      bagShake.publish(bagShaken);
+      fallLean.publish(leanTopple);
+      }
+    lastPubTime2 = millis();
   }
 
 //Display on OLED
