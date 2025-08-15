@@ -157,8 +157,7 @@ void loop() {
   if ((inTempF >= 40) && (inTempF <= 140) && (outTempF < 90)){
     dangerZone=2;
     dangerMsg = "Danger Zone Temp";
-    // tempDangerTimer.startTimer(20000);
-    //Serial.printf("Danger Zone Time: %f\n",dangerTimer);
+
 
   }
   if ((dangerZone == 2)){
@@ -168,20 +167,11 @@ void loop() {
     dangerTimeMins = 999;
    }
   }
-  // if (tempDangerTimer.isTimerReady()){
-  //   // display.setTextSize(1);
-  //   // display.setTextColor(WHITE);
-  //   // display.setCursor(0,32);
-  //   // display.setRotation(2);
-  //   // display.printf("Danger Time Exceeded");
-  // }
 
 //Danger Zone- High Temp Outside
   if (((inTempF >= 40) && (inTempF <= 140)) && (outTempF >=90)) {
     dangerZone=3;
     dangerMsg = "HiTemp Danger Zone";
-    // hiTempDangerTimer.startTimer(10000);
-    // Serial.printf("HiTemp Danger Zone Time: %f\n", dangerTimer);
   }
   if ((dangerZone == 3)){
     hiDangerTimeSec = millis()/1000.0;
@@ -190,13 +180,6 @@ void loop() {
       hiDangerTimeMins = 999;
     }
   }
-  // if (hiTempDangerTimer.isTimerReady()){
-  //   // display.setTextSize(1);
-  //   // display.setTextColor(WHITE);
-  //   // display.setCursor(0,32);
-  //   // display.setRotation(2);
-  //   // display.printf("Danger Time Exceeded");
-  // }
 
   Serial.printf("Danger (mins) %.0f HiDanger (mins) %.0f\n",dangerTimeMins,hiDangerTimeMins);
 
@@ -230,7 +213,7 @@ void loop() {
   accelYG= (CONVFACTOR * accel_y);
   accelZG= (-CONVFACTOR * accel_z);
 
-  toppleRad = -asin(accelZG);
+ // toppleRad = -asin(accelZG);
   toppleDeg = (360/(2*M_PI)) * pitchRad;
 
 
